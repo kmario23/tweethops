@@ -1,0 +1,11 @@
+#To run the code, you need the access tokens & keys, which you'll get from twitter-application
+#if you don't have one, please email me!
+
+##to run the code, from the terminal##
+python twitter_streaming.py > ../data/twitter_stream.txt
+
+##for keeping track of time,## will work in *nix based-distros##
+time python twitter_streaming.py > ../data/twitter_stream.txt
+
+*Rarely it may throw an error. Don't fret. 
+*It simply means that our network is not fast enough to collect/fetch the data that twitter server is sending.
