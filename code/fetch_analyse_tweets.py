@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Modified on Tue Apr 12 17:10:31 2016
+
+@author: mario
+"""
+
 #!/usr/bin/env python
 from __future__ import print_function
 from __future__ import division
