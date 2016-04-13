@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Modified on Tue Apr 12 17:10:31 2016
-
+Modified on Tue Apr 13 12:08:31 2016
 @author: mario
 """
 
@@ -24,8 +23,7 @@ from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler
 import tweepy
 
-#user credentials to access Twitter API
-#Insert the keys that you get from Twitter APP
+#user credentials to access Twitter API 
 access_token = ""
 access_token_secret = ""
 consumer_key = ""
@@ -135,7 +133,7 @@ def present_output(usernames_set, user_batch):
             tweeted_days = -9999
             twt_timedelta = -9999
             tweet_rate = round(tweet_count/twt_timedelta, 3)
-            print('No recent tweets available')
+            ###print('No recent tweets available')
 
         #for some accounts, retweet dates list might be empty since they just don't retweet at all
         if len(all_retweet_dates) != 0:
@@ -159,12 +157,18 @@ def present_output(usernames_set, user_batch):
             retweeted_days = -9999
             rtwt_timedelta = -9999
             retweet_rate = round(retweet_count/rtwt_timedelta, 3)
-            print('No recent retweets available')
+            ####print('No recent retweets available')
 
 
         print("{0: <30} | {1: <20} | {2: <9} | {3: <9} | {4: <9} | {5: <9} | {6: <9} | {7: <9} | {8: <9} | {9: <9}".format( \
               query, handle, followers, following, tweet_count, twt_timedelta, tweet_rate, retweet_count, rtwt_timedelta, retweet_rate ) \
              )
+
+        #write to file for further analysis
+        with open('../data/user_statistics.txt', 'a') as fh:
+            fh.write("{0: <30} | {1: <20} | {2: <9} | {3: <9} | {4: <9} | {5: <9} | {6: <9} | {7: <9} | {8: <9} | {9: <9}\n".format( \
+                     query, handle, followers, following, tweet_count, twt_timedelta, tweet_rate, retweet_count, rtwt_timedelta, retweet_rate ) \
+                    )
     
     user_batch[:] = [] #needs to be empty once the process wakes up and starts querying tweets for next batch(i.e. next 15 usernames)
     return user_batch
@@ -200,6 +204,11 @@ def make_API_call_and_write2file(usernames_set, query):
             user_batch = present_output(usernames_set, user_batch)
             sleeper(secs=1000)
 
+    #call present_output function directly if the user count is less than 15
+    api_requests = counter = 0
+    print('\n Presenting the user statistics now... \n')
+    user_batch = present_output(usernames_set, user_batch)
+
 
 def construct_graphs():
     """ Build graphs using graph-tool from the extracted retweets, favorites, retweet rate"""
@@ -227,7 +236,7 @@ if __name__ == '__main__':
         open(args.output_file,'a').close()
 
 
-    #authenticating the app (https://apps.twitter.com/app)
+    #authenticating the app (https://apps.twitter.com/app/9190005)
     auth = tweepy.auth.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
@@ -240,6 +249,10 @@ if __name__ == '__main__':
 
     #searched_tweets = [status for status in tweepy.Cursor(api.search, q=query).items(max_tweets)]
     searched_tweets = search_tweets_from_twitter_home(query, max_tweets, from_date, to_date)
+
+    #flush out generator content to stdout
+    #for tw in searched_tweets:
+    #    print(tw)
 
     #write to output file
     with open(args.output_file, 'a') as ofile:
@@ -254,4 +267,3 @@ if __name__ == '__main__':
     
     #main stuff happens here
     make_API_call_and_write2file(user_details, query)
-
