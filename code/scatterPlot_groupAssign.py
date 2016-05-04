@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Modified on Tue May 2 02:22:31 2016
-
 @author: mario
 """
 
@@ -15,9 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 def assignGroup_Id(user_stats_dict):
-    """input: takes user statistics file which has followers, following, tweet-retweet rate numbers
+    """ input: takes user statistics dict with raw scores of followers, following, tweet-retweet rate numbers
        output: Assigns a group ID to each (user) data-point (ln scale)
     """
     #define constant grid size of (2x2) square, with group IDs
@@ -86,6 +84,7 @@ def assignGroup_Id(user_stats_dict):
                  'G54' : [( 4.0,  6.0), (14.0, 16.0)],
                 }
 
+    #initialize defaultdict to avoid KeyError
     assignedGroups = collections.defaultdict(float)
 
     for key, val in user_stats_dict.items():
@@ -98,8 +97,8 @@ def assignGroup_Id(user_stats_dict):
             xupp = v[0][1]  #6.0 in [(4.0, 6.0), ...]
             ylow = v[1][0]  #14.0 in [(14.0, 16.0), ...]
             yupp = v[1][1]  #16.0 in [(14.0, 16.0), ...]
-            #print(xlow, trrate, xupp, ylow, fcount, yupp)
-            
+
+            #group data points and assign group ID
             if xlow <= trrate < xupp and ylow <= fcount < yupp:
                 if k not in assignedGroups:
                     assignedGroups[k] = [ username + str((trrate, fcount)) ]
@@ -109,7 +108,7 @@ def assignGroup_Id(user_stats_dict):
     return (assignedGroups, wholegrid)
 
 def scatter_plot(user_dict):
-    """ input: takes user statistics file which has followers, following, tweet-retweet rate numbers
+    """ input: takes user statistics dict with raw scores of followers, following, tweet-retweet rate numbers
         Output: generates a scatter plot (grid)
     """
 
@@ -145,7 +144,7 @@ if __name__ == '__main__':
     requiredArgs.add_argument('-i', '--input_file', help='Input txt file', required=True)
     args = parser.parse_args()
     
-    #read user statistics into a dict; {'CNBC': (2311199, 200)} #follower_cnt, tw+rwt rate
+    #read user statistics file into a dict; {'CNBC': (2311199, 200)} #follower_cnt, tw+rwt rate
     user_stats_dict = {}
     with open(args.input_file, 'r') as fh:
         for line in fh:
@@ -162,3 +161,4 @@ if __name__ == '__main__':
         print(k, grid[k], '=>', v, "\n")
 
     scatter_plot(user_stats_dict)
+
