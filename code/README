@@ -19,3 +19,11 @@ python scatterPlotUserStatistics.py -i ../data/user_statistics.txt
 ##to run scatterPlot_groupAssign.py
 ##Group the data points into the respective grids and assign group IDs
 python scatterPlot_groupAssign.py -i ../data/user_statistics_mars-mission.txt
+
+
+##to fetch (upto 100) retweets of a particular tweet, if it has any, using the 'tweet id'
+
+
+
+##to get all the followers of a particular user
+python get_followers_names.py
