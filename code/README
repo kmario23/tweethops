@@ -27,3 +27,6 @@ python scatterPlot_groupAssign.py -i ../data/user_statistics_mars-mission.txt
 
 ##to get all the followers of a particular user
 python get_followers_names.py
+
+##alternate method for getting followers
+python fetch_followers.py
