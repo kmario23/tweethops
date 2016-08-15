@@ -109,7 +109,7 @@ def get_retweets_for_tweetids(twt_ids, ids_set):
                 screen_names = gfn.get_user_names(folr_ids)
                 gfn.write_to_file(screen_names, tweeter_name, "../data/followers/")
 
-                #compute hop
+                #compute overlap & hop
                 compute_hop1_overlap(screen_names, retweeter_names, tweeter_name)
         else:
             calls_count = 0
@@ -152,7 +152,6 @@ if __name__ == '__main__':
         #creates an empty file
         open(args.output_file, 'a').close()
 
-    #authenticating the app (https://apps.twitter.com/app/9190005)
     auth = tweepy.auth.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
     api = tweepy.API(auth)
@@ -163,7 +162,7 @@ if __name__ == '__main__':
     FROM_DATE = args.from_date
     TO_DATE = args.to_date
 
-    #searched_tweets = [status for status in tweepy.Cursor(api.search, q=query).items(max_tweets)]
+    #start searching for all relevant tweets
     fetched_tweets = search_tweets_from_twitter_home(QUERY, MAX_TWEETS, FROM_DATE, TO_DATE)
 
     #write searched results(tweets) to output file
