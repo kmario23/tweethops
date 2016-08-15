@@ -22,11 +22,14 @@ python scatterPlot_groupAssign.py -i ../data/user_statistics_mars-mission.txt
 
 
 ##to fetch (upto 100) retweets of a particular tweet, if it has any, using the 'tweet id'
-
-
+Refer "get_retweets" function in "hop_level1_algorithm.py"
 
 ##to get all the followers of a particular user
 python get_followers_names.py
 
 ##alternate method for getting followers
 python fetch_followers.py
+
+##run hop-algorithm implementation
+python hop_level1_algorithm.py -q "Summer Vacation" -cnt 200 -from "2015-12-31" -to "2016-8-15" -o "full_results.txt"
+
