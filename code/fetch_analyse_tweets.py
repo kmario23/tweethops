@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Modified on Tue Apr 13 12:08:31 2016
+Modified on Mon Aug 15 21:08:31 2016
 @author: mario
 """
 
@@ -23,11 +23,11 @@ from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler
 import tweepy
 
-#user credentials to access Twitter API 
-access_token = ""
-access_token_secret = ""
-consumer_key = ""
-consumer_secret = ""
+#user credentials to access Twitter API
+ACCESS_TOKEN = "INSERT TOKEN HERE"
+ACCESS_TOKEN_SECRET = "INSERT TOKEN HERE"
+CONSUMER_KEY = "INSERT TOKEN"
+CONSUMER_SECRET = "INSERT TOKEN"
 
 
 def sleeper(secs):
@@ -45,14 +45,19 @@ def to_datetime(created_at):
 
 
 def search_tweets_from_twitter_home(query, max_tweets, from_date, to_date):
-    """Method-2: searching from twitter search home. "result_type=mixed" means both 'recent' & 'popular' tweets will be returned in search results.
+    """Method-2: searching from twitter search home.
+       "result_type=mixed" means both 'recent' & 'popular' tweets will be returned in search results.
        returns the generator (for memory efficiency)
     """
     print("searching twitter for relevant tweets now...")
-    searched_tweets = ( status._json for status in tweepy.Cursor(api.search, q=query, count=300, since=from_date, until=to_date,
-                                                          result_type="mixed",
-                                                          lang="en"
-                                                         ).items(max_tweets) )
+    searched_tweets = (status._json for status in tweepy.Cursor(api.search,
+                                                                 q=query,
+                                                                 count=300,
+                                                                 since=from_date,
+                                                                 until=to_date,
+                                                                 result_type="mixed",
+                                                                 lang="en"
+                                                                ).items(max_tweets))
     return searched_tweets
 
 
@@ -64,14 +69,16 @@ def extract_user_details_from_tweets(inputfile):
         set_of_tuples_users = set()
         for line in fh:
             tweet = literal_eval(line)
-            #print tweet['user']['screen_name'], "=>", tweet['user']['followers_count'], "=>", \
-            #      tweet['retweet_count'], "=>", tweet['favorite_count']
-            set_of_tuples_users.add( (tweet['user']['screen_name'], tweet['user']['followers_count'], tweet['user']['friends_count']) )
+            set_of_tuples_users.add((tweet['user']['screen_name'],
+                                      tweet['user']['followers_count'],
+                                      tweet['user']['friends_count']))
         return set_of_tuples_users
 
 
 def get_tweets_from_user_timeline(screen_name, tweet_count):
-    """twitter api allows only 200 most recent tweets/replies to be fetched, no matter what the count we pass as parameter."""
+    """twitter api allows only 200 most recent tweets/replies to be fetched,
+       no matter what the count we pass as parameter.
+    """
     user_tweets = api.user_timeline(screen_name, count = tweet_count, include_rts = True, exclude_replies = True)
     return user_tweets
 
@@ -216,7 +223,6 @@ def construct_graphs():
 
 
 if __name__ == '__main__':
-
     #parse command line arguments & get output filename, tweet count, from date, to date
     parser = argparse.ArgumentParser()
     requiredArgs = parser.add_argument_group('must need arguments')
@@ -227,7 +233,6 @@ if __name__ == '__main__':
     requiredArgs.add_argument('-o', '--output_file', help='Output txt file to write returned tweets', required=True)
     args = parser.parse_args()
 
-
     filepath = os.getcwd() + os.path.sep + args.output_file
     if os.path.exists(filepath):
         sys.exit("output file already exists; Give new filename!")
@@ -235,10 +240,8 @@ if __name__ == '__main__':
         #create an empty file
         open(args.output_file,'a').close()
 
-
-    #authenticating the app (https://apps.twitter.com/app/9190005)
-    auth = tweepy.auth.OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_token_secret)
+    auth = tweepy.auth.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+    auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
     api = tweepy.API(auth)
 
     #keyphrase to search, from & to-date in which tweets need to be returned
@@ -267,3 +270,4 @@ if __name__ == '__main__':
     
     #main stuff happens here
     make_API_call_and_write2file(user_details, query)
+
