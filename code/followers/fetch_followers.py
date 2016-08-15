@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Modified on Mon Aug 15 20:58:31 2016
+@author: mario
+"""
+
 #!/usr/bin/env python
 """module for fetching followers of a twitter user"""
 from __future__ import print_function
