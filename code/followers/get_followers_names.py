@@ -1,27 +1,19 @@
-# -*- coding: utf-8 -*-
-"""
-Modified on Mon Aug 15 20:58:31 2016
-@author: mario
-"""
-
 #!/usr/bin/env python
 """another module for fetching followers of a twitter user"""
 from __future__ import print_function
 from __future__ import division
 
-#Import built-in libs
 import time
 import math
 
-#Import the necessary methods from tweepy library
 import tweepy
 
 #user credentials to access Twitter API
-ACCESS_TOKEN = "YOUR TOKEN HERE"
-ACCESS_TOKEN_SECRET = "YOUR TOKEN HERE"
-CONSUMER_KEY = "YOUR TOKEN HERE"
-CONSUMER_SECRET = "YOUR TOKEN HERE"
-    
+ACCESS_TOKEN = ""
+ACCESS_TOKEN_SECRET = ""
+CONSUMER_KEY = ""
+CONSUMER_SECRET = ""
+
 auth = tweepy.auth.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 api = tweepy.API(auth)
@@ -32,19 +24,37 @@ def sleeper(secs):
        To be called when the request limit exceeds the allowed limits (15/15min or 180/15min).
     """
     to_mins = round(secs/60.0, 3)
-    print(" Well, Sleep for ", to_mins, " mins and will continue afterwards...\n")
+    print(" Followers Call: Sleep for ", to_mins, "mins & continue ...\n")
     time.sleep(secs) #well, sleep for n secs and then proceed.
 
 
-def get_followers_ids(scr_name):
-    """ first we've to get ids of all followers, of a particular user. """
-    ids = []
-    for page in tweepy.Cursor(api.followers_ids, screen_name=scr_name).pages():
-        ids.extend(page)
-        if len(page) == 5000:
-            print(" more than 5K followers ...")
-            sleeper(60)
-    return ids
+def get_followers_ids(scr_name, cum_call_count):
+    """ to get ids of all followers, of a particular user. """
+    print("getting ids of followers of ", scr_name)
+    fol_call = 1
+    # try 10 times to run this
+    for attempt in range(10):
+        try:
+            ids = []
+            for page in tweepy.Cursor(api.followers_ids, screen_name=scr_name).pages():
+                ids.extend(page)
+                if len(page) == 5000:
+                    print(" more than 5K followers ...")
+                    if (fol_call + cum_call_count) < 15:  #avoid RateLimitExceeded Error
+                        fol_call += 1
+                        sleeper(30)
+                    else:
+                        sleeper(960)
+                        fol_call = 1
+                        cum_call_count = 0
+            return (ids, fol_call)
+        except tweepy.error.TweepError as twerr:
+            print("Error occurred: {0}".format(twerr))
+            print("Reconnecting... after 10secs")
+            sleeper(30)
+    else:
+        """On failing all retries, return this"""
+        return (ids, 14)
 
 
 def get_user_names(tids):
