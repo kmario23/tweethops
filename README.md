@@ -1,3 +1,1 @@
-Mining twitter data  
-
-Twitter data analysis
+Mining twitter data for Twitter network analysis
