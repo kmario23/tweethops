@@ -19,3 +19,7 @@
 ##### 6) Run hop-algorithm implementation
     time python complete_hop_algorithm.py -q "mars mission" -cnt 10000 -thresh 50000 \
                                 -from "2015-12-31" -to "2016-11-25" -o all_results.txt
+
+ > This last step alone is enough to see the result of tweet hops from group to group.
+ 
+ PS: Graph plotting code is yet to be added.
