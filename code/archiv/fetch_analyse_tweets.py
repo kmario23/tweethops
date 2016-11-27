@@ -134,13 +134,10 @@ def present_output(usernames_set, user_batch):
 
             #finally, tweet rate rounded to 3 decimal digits
             tweet_rate = round(tweet_count/twt_timedelta, 3)
-            #print("recent tweet at ", dtr)
-            #print("oldest tweet at ", dto)
         else:
             tweeted_days = -9999
             twt_timedelta = -9999
             tweet_rate = round(tweet_count/twt_timedelta, 3)
-            ###print('No recent tweets available')
 
         #for some accounts, retweet dates list might be empty since they just don't retweet at all
         if len(all_retweet_dates) != 0:
@@ -158,13 +155,10 @@ def present_output(usernames_set, user_batch):
 
             #finally, retweet rate rounded to 3 decimal digits
             retweet_rate = round(retweet_count/rtwt_timedelta, 3)
-            #print("recent retweet at ", dtr)
-            #print("oldest retweet at ", dto)
         else:
             retweeted_days = -9999
             rtwt_timedelta = -9999
             retweet_rate = round(retweet_count/rtwt_timedelta, 3)
-            ####print('No recent retweets available')
 
 
         print("{0: <30} | {1: <20} | {2: <9} | {3: <9} | {4: <9} | {5: <9} | {6: <9} | {7: <9} | {8: <9} | {9: <9}".format( \
@@ -252,10 +246,6 @@ if __name__ == '__main__':
 
     #searched_tweets = [status for status in tweepy.Cursor(api.search, q=query).items(max_tweets)]
     searched_tweets = search_tweets_from_twitter_home(query, max_tweets, from_date, to_date)
-
-    #flush out generator content to stdout
-    #for tw in searched_tweets:
-    #    print(tw)
 
     #write to output file
     with open(args.output_file, 'a') as ofile:

@@ -86,7 +86,6 @@ def get_retweets_for_tweetids(twt_ids, ids_set):
     calls_count = 0
     for tid in twt_ids:
         if calls_count < 15:
-            #print("    retweets of tweet id ", tid)
             calls_count += 1
             retweet_results = get_retweets(int(tid), 100)
             retweets_list = [rt for rt in retweet_results]

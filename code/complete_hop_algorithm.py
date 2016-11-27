@@ -3,26 +3,27 @@
 from __future__ import print_function
 from __future__ import division
 
-#built-in libs
-import time
-import argparse
+# built-in libs
 import os
 import sys
+import time
+import argparse
+import pickle
 from ast import literal_eval
-from datetime import datetime, timedelta
+from collections import defaultdict
 from email.utils import parsedate_tz
+from datetime import datetime, timedelta
+from multiprocessing import Process, Queue
 
-#necessary methods from tweepy lib
 import tweepy
-
 from prettytable import PrettyTable
 
-#import own modules
-from followers import get_followers_names as gfn
-from friends import get_friends_ids as gfi
+# import own modules
 import tweet_retweet_rate as get_rates
+from friends import get_friends_ids as gfi
+from followers import get_followers_names as gfn
 
-#user credentials to access Twitter API
+# user credentials to access Twitter API
 ACCESS_TOKEN = ""
 ACCESS_TOKEN_SECRET = ""
 CONSUMER_KEY = ""
@@ -31,16 +32,20 @@ CONSUMER_SECRET = ""
 
 def sleeper(secs):
     """To obey twitter API request limit.
-    To be called when the request limit exceeds the allowed limits (15/15min or 180/15min).
+
+    To be called when the request limit exceeds the allowed limits
+    (15/15min or 180/15min).
     """
     to_mins = round(secs/60.0, 3)
     print("Main Call: Sleep for ", to_mins, "mins & continue ...")
-    time.sleep(secs) #well, sleep for n secs and then proceed.
+    time.sleep(secs)  # well, sleep for n secs and then proceed.
 
 
 def to_datetime(created_at):
-    """ Input  : 'Sat Apr 23 08:11:25 +0000 2000'
-        Output : datetime.datetime(2000, 4, 23, 8, 11, 25)
+    """Converting to date time str to datetime object.
+
+    Input  : 'Sat Apr 23 08:11:25 +0000 2000'
+    Output : datetime.datetime(2000, 4, 23, 8, 11, 25)
     """
     time_tuple = parsedate_tz(created_at.strip())
     dt = datetime(*time_tuple[:6])
@@ -49,9 +54,10 @@ def to_datetime(created_at):
 
 def search_tweets_from_twitter_home(query, max_tweets, from_date, to_date):
     """Method-2: searching from twitter search home.
-       'result_type=mixed' means both 'recent'&'popular' tweets will be returned in results.
-       'result_type=top' is good here, since it returns tweets of tweeters having moderate followers.
-       returns the generator (for memory efficiency)
+
+    'result_type=mixed' means both 'recent'&'popular' tweets will be returned in results.
+    'result_type=top' is good here, since it returns tweets of tweeters having moderate followers.
+    returns the generator (for memory efficiency)
     """
     print("searching twitter for relevant tweets now...")
     searched_tweets = (status._json for status in tweepy.Cursor(api.search,
@@ -67,11 +73,12 @@ def search_tweets_from_twitter_home(query, max_tweets, from_date, to_date):
 
 def get_retweets(tid, rwt_count):
     """Returns up to 100 of the first retweets of a given tweet.
-       returns the generator (for memory efficiency)
-       On Error: return empty generator
+
+    returns the generator (for memory efficiency)
+    On Error: return empty generator
     """
     print("\nfetching retweets of tweet: ", tid)
-    sleeper(10) #to avoid null results because of fast requests, network latency
+    sleeper(10)  # to avoid null results because of fast requests, network latency
     try:
         fetched_retweets = (status._json for status in api.retweets(tid, rwt_count))
         return fetched_retweets
@@ -83,9 +90,9 @@ def get_retweets(tid, rwt_count):
 
 def extract_user_details(inputfile):
     """extracts tweet ids for tweets with atleast 1 retweet;
-       retweets itself might be returned in search results;
-       filter out those entries since retweeting a retweet increases only original tweet's retweet count;
-       these ids are used to fetch all_retweets of a particular tweet.
+    retweets itself might be returned in search results;
+    filter out those entries since retweeting a retweet increases only original tweet's retweet count;
+    these ids are used to fetch all_retweets of a particular tweet.
     """
     with open(inputfile, 'r') as in_fh:
         tweet_ids_set = set()
@@ -99,29 +106,33 @@ def extract_user_details(inputfile):
 
 def get_retweets_for_tweetids(twt_ids, twtrIDmap, folr_thresh):
     """To get all retweets for a set of tweets.
-       INPUT : a list of tweet ids
-       OUTPUT: all retweets for each tweet id
+
+    INPUT : a list of tweet ids
+    OUTPUT: all retweets for each tweet id
     """
     total_calls_count = 0
     follower_calls = 0
     friends_calls = 0
+    timeline_calls = 0
 
     for tid in twt_ids:
-        if int(twtrIDmap[tid][1]) < int(folr_thresh):               #skip tweeters with huge followers
-                print("\n", twtrIDmap[tid][0],"=>", twtrIDmap[tid][1], "=>", str(folr_thresh))
+        if int(twtrIDmap[tid][1]) < int(folr_thresh):   # skip tweeters with huge followers
+                print("\n", twtrIDmap[tid][0], "=>", twtrIDmap[tid][1], "=>", str(folr_thresh))
                 total_calls_count += 1
                 retweet_results = get_retweets(int(tid), 100)
                 retweets_list = [rt for rt in retweet_results]
                 print("fetched ", len(retweets_list), " retweets")
+
+                userdetails_set = set()
 
                 if retweets_list:
                     write_to_file(retweets_list, tid)
                     retweeter_names = []
                     retweeter_ids = []
                     retweeter_stats = {}
-                    retweeter_stats.clear() #dict cleaning
+                    retweeter_stats.clear()  # dict cleaning
                     retweeting_time = []
-                    del retweeter_names[:] #initial cleaning
+                    del retweeter_names[:]   # initial cleaning
                     del retweeter_ids[:]
                     del retweeting_time[:]
                     for res in retweets_list:
@@ -142,6 +153,24 @@ def get_retweets_for_tweetids(twt_ids, twtrIDmap, folr_thresh):
                         retweeter_names.append(rtwtr_name)
                         retweeter_ids.append(rtwtr_id)
                         retweeting_time.append(retweet_time)
+
+                        # for querying the timeline and compute rates
+                        # get tweeter & retweeter usernames, followers & following counts
+                        userdetails_set.add((rtwtr_name, retweeter_stats[rtwtr_name][0], retweeter_stats[rtwtr_name][2]))
+                    userdetails_set.add((tweeter_name, tweeter_folrs, following))
+                    print("userdetails: ", userdetails_set)
+
+                    if timeline_calls < 15:
+                        print(" PR1: computing tweet/retweet rates...")
+                        tlrates_dict, tlcalls, tlbool = get_rates.compute_timeline_stats(userdetails_set, QUERY, timeline_calls)
+                        print(" PR1: timeline calls so far: ", tlcalls)
+                        if tlcalls > 14:
+                            timeline_calls = 0
+                        else:
+                            timeline_calls = tlcalls
+                    else:
+                        pass
+
                     print("Original tweeter username: ", tweeter_name, "\n")
 
                     # format tweet time
@@ -161,13 +190,19 @@ def get_retweets_for_tweetids(twt_ids, twtrIDmap, folr_thresh):
                         tweeter_Vals = [1, tweeter_name, tweet_time, len(retweeter_names), 'Yes', 'No', tweeter_folrs, status_count, following]
                         retweeter_Vals = [retweeter_names, retweeting_time, "-", 'No', L1_overlap, retweeter_stats]
 
-                        ptabled = prettyPrint(tweeter_Vals, retweeter_Vals)
+                        if tlbool:
+                            print("PR1: thread returned: ", tlrates_dict)
+
+                        ptabled, all_stats_dict = prettyPrint(tweeter_Vals, retweeter_Vals, tlrates_dict, tid)
                         output_stats(ptabled)
+                        do_pickle(all_stats_dict)
 
                         if total_calls_count < 15 and follower_calls < 15:
                             continue
                         else:
                             sleeper(900)
+                            # for single thread case, reset timeline-calls also
+                            timeline_calls = 0
                             follower_calls = 0
                             total_calls_count = 0
 
@@ -175,30 +210,36 @@ def get_retweets_for_tweetids(twt_ids, twtrIDmap, folr_thresh):
                         print("Not all retweeters are direct followers of original tweeter.")
                         not_dir_folrs_stats = make_friends_call(retweeter_ids, retweeter_names, folr_ids,
                                                           tweeter_name, tweeter_id, total_calls_count, friends_calls)
+                        # pass
                         print("NOT-DIR-FOLRS-STATS:\n", not_dir_folrs_stats)
 
                         tweeter_Vals = [1, tweeter_name, tweet_time, len(retweeter_names), 'Yes', 'No', tweeter_folrs, status_count, following]
                         retweeter_Vals = [retweeter_names, retweeting_time, "-", 'No', L1_overlap, retweeter_stats]
 
-                        ptabled = prettyTabled(tweeter_Vals, retweeter_Vals, not_dir_folrs_stats)
+                        if tlbool:
+                            print("PR1: thread returned: ", tlrates_dict)
+
+                        ptabled, all_stats_dict = prettyTabled(tweeter_Vals, retweeter_Vals, not_dir_folrs_stats, tlrates_dict, tid)
                         output_stats(ptabled)
+                        do_pickle(all_stats_dict)
 
                         if total_calls_count < 15 and follower_calls < 15:
                             continue
                         else:
                             sleeper(900)
+                            # for single thread case, reset timeline_calls also
+                            timeline_calls = 0
                             follower_calls = 0
                             total_calls_count = 0
-
         else:
             continue
 
 
 def make_friends_call(retweeter_ids, retweeter_names, folr_ids, tweeter_name, tweeter_id, calls_cnt, frnd_calls):
-    """
-    To find ids which are not direct followers of original tweeter.
+    """To find ids which are not direct followers of original tweeter.
 
     Get 'following/friends' persons ids.
+    Find whether current retweeter is following any of the previous retweeters
     """
     not_direct_folrs = set(retweeter_ids).difference(set(folr_ids))
     direct_folrs = set(retweeter_ids).difference(not_direct_folrs)
@@ -223,7 +264,7 @@ def make_friends_call(retweeter_ids, retweeter_names, folr_ids, tweeter_name, tw
     is_following_prev = {}
     frnd_call_res = []
     frnd_ids = []
-    del frnd_ids[:]    #cleaning it
+    del frnd_ids[:]    # cleaning it
 
     frnd_call_cnt = frnd_calls
     for idx, _id in to_call_ids:
@@ -270,7 +311,6 @@ def make_friends_call(retweeter_ids, retweeter_names, folr_ids, tweeter_name, tw
                 print("is_following status:: ", intersect_res)
 
             is_following_prev[rev_rtr_names[idx]] = intersect_res
-
     return is_following_prev
 
 
@@ -279,7 +319,6 @@ def find_intersection(rtrIDs, frnd_ids, rtr_names):
     print("comparing: RTR-IDS: ", rtrIDs, "--VS--", " FRND-IDS-LEN: ", len(frnd_ids))
     # will not work, if the user is not following all of the prev retweeters
     # is_subset = set(rtrIDs).issubset(set(frnd_ids))
-
     following_status = [(True, rtID, rtr_names[idx]) if rtID in frnd_ids else (False, rtID, rtr_names[idx]) for idx, rtID in enumerate(rtrIDs)]
     return following_status
 
@@ -311,15 +350,27 @@ def compute_hop1_overlap(rtrIDS, folrIDS, twtr_name):
     return direct_folrs, subset_chk, disjoint_chk
 
 
-def prettyPrint(twt_Vals, rwt_Vals):
+def prettyPrint(twt_Vals, rwt_Vals, timeline_stats, tweet_ID):
     """To pretty print output using PrettyTable.
+
     This is for ALL-RETWEETERS are DIRECT FOLLOWERS of Original Tweeter case.
     """
     print("From prettyPrint function...\n")
-    field_names = ["S.No", "UserID", "Re/TweetTime", "Retweets", "Orig.Tweet?", "Dir.Followr?", "#Followr", "#Tweets", "#Following"]
+
+    # initialize dict with empty dict {}; e.g. {key : {}}
+    all_stats_dict = defaultdict(dict)
+
+    scr_name = twt_Vals[1]
+    twt_cnt, twt_rate, rtwt_cnt, rtwt_rate = timeline_stats[scr_name]
+    twt_Vals.extend([twt_rate, rtwt_rate])
+
+    field_names = ["S.No", "UserID", "Re/TwtTime", "Retwts", "Orig.Twt?", "Dir.Folwr?", "#Folwr", "#Twts", "#Frnds", "twt_rate", "rtwt_rate"]
     tab = PrettyTable(field_names)
     tab.padding_width = 1
     tab.add_row(twt_Vals)
+
+    # update tweeter stats
+    all_stats_dict[tweet_ID].update({twt_Vals[0]: twt_Vals})
 
     # reverse the list for time: old->recent
     retweeters = list(reversed(rwt_Vals[0]))
@@ -329,22 +380,37 @@ def prettyPrint(twt_Vals, rwt_Vals):
     f2 = rwt_Vals[5]
 
     for idx, rtr in enumerate(retweeters):
+        twt_cnt, twt_rate, rtwt_cnt, rtwt_rate = timeline_stats[rtr]
         sno = idx+2
-        tab.add_row([sno, rtr, retweet_times[idx], *f1, is_dir_folrs[idx], *f2[rtr][:]])
+        row_rt = [sno, rtr, retweet_times[idx], *f1, is_dir_folrs[idx], *f2[rtr][:], twt_rate, rtwt_rate]
+        tab.add_row(row_rt)
+        all_stats_dict[tweet_ID].update({sno: row_rt})
     print(tab, "\n")
 
-    return tab
+    return tab, all_stats_dict
 
 
-def prettyTabled(twt_Vals, rwt_Vals, not_dir_folrs_stats):
+def prettyTabled(twt_Vals, rwt_Vals, not_dir_folrs_stats, timeline_stats, tweet_ID):
     """To pretty print output using PrettyTable.
+
     This is for NOT-ALL-RETWEETERS are DIRECT FOLLOWERS of Original Tweeter case.
     """
     print("From prettyTabled function...\n")
-    field_names = ["S.No", "UserID", "Re/TweetTime", "Retweets", "Orig.Tweet?", "Dir.Followr?", "#Followr", "#Tweets", "#Following"]
+
+    # initialize dict with empty dict {}; e.g. {key : {}}
+    all_stats_dict = defaultdict(dict)
+
+    scr_name = twt_Vals[1]
+    twt_cnt, twt_rate, rtwt_cnt, rtwt_rate = timeline_stats[scr_name]
+    twt_Vals.extend([twt_rate, rtwt_rate])
+
+    field_names = ["S.No", "UserID", "Re/TwtTime", "Retwts", "Orig.Twt?", "Dir.Folwr?", "#Folwr", "#Twts", "#Frnds", "twt_rate", "rtwt_rate"]
     tab = PrettyTable(field_names)
     tab.padding_width = 1
     tab.add_row(twt_Vals)
+
+    # update tweeter stats
+    all_stats_dict[tweet_ID].update({twt_Vals[0]: twt_Vals})
 
     # reverse the list for time: old->recent
     retweeters = list(reversed(rwt_Vals[0]))
@@ -357,31 +423,32 @@ def prettyTabled(twt_Vals, rwt_Vals, not_dir_folrs_stats):
     for idx, booVal in enumerate(is_dir_folrs):
         rtr_name = retweeters[idx]
         if not booVal and rtr_name in ndfs:
-            stats_tupl = ndfs[rtr_name]    #[(False, 26736333, 'anna'), (True, 9284112, 'brian')]
+            stats_tupl = ndfs[rtr_name]    # [(False, 26736333, 'anna'), (True, 9284112, 'brian')]
             for item in reversed(stats_tupl):
                 if item[0]:
-                    #refID is from the tweet arose
+                    # refID is from the tweet arose
                     try:
                         refID = retweeters.index(item[2])
-                        refID += 2  #since retweeters list starts @ 2 position in prettyprint table
+                        refID += 2  # since retweeters list starts @ 2 position in prettyprint table
                         is_dir_folrs[idx] = (refID, item[2])
                     except ValueError:
-                        is_dir_folrs[idx] = (1, item[2]) #ref original tweeter; as in only 1 retweet case
-                    #once found go to next ndf-retweeter
+                        is_dir_folrs[idx] = (1, item[2])  # ref original tweeter; as in only 1 retweet case
+                    # once found go to next ndf-retweeter
                     break
                 else:
                     is_dir_folrs[idx] = (0, 'Unknown')
         else:
             continue
 
-
     for idx, rtr in enumerate(retweeters):
-        sno = idx+2    #since retweeters list starts @ 2 position in prettyprint table
-        tab.add_row([sno, rtr, retweet_times[idx], *f1, is_dir_folrs[idx], *f2[rtr][:]])
+        twt_cnt, twt_rate, rtwt_cnt, rtwt_rate = timeline_stats[rtr]
+        sno = idx+2
+        row_rt = [sno, rtr, retweet_times[idx], *f1, is_dir_folrs[idx], *f2[rtr][:], twt_rate, rtwt_rate]
+        tab.add_row(row_rt)
+        all_stats_dict[tweet_ID].update({sno: row_rt})
     print(tab, "\n")
 
-    return tab
-
+    return tab, all_stats_dict
 
 
 def output_stats(ptable):
@@ -391,8 +458,25 @@ def output_stats(ptable):
         af.write(str(ptable) + "\n\n\n")
 
 
+def do_pickle(stats_dict):
+    """To pickle the "dict" objects for further processing
+
+    Pickled dict format:
+        {tweet_ID1: {username: [s.no, username, ... ]}
+         tweet_ID2: {username: [s.no, username, ... ]}
+         tweet_ID3: {username: [s.no, username, ... ]}
+         .
+         .
+         tweet_IDn: {username: [s.no, username, ... ]}
+        }
+    """
+    with open("../data/pickled/stats.pkl", 'ab') as fh:
+        pickle.dump(stats_dict, fh)
+
+
 if __name__ == '__main__':
     # parse command line arguments & get output filename
+    # tweet count, from date, to date
     parser = argparse.ArgumentParser()
     requiredArgs = parser.add_argument_group('must need arguments')
     requiredArgs.add_argument('-q', '--query', help='Query to be searched', required=True)
@@ -414,6 +498,8 @@ if __name__ == '__main__':
     auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
     api = tweepy.API(auth)
 
+    que = Queue()
+
     # keyphrase to search, from & to-date in which tweets need to be returned
     QUERY = args.query
     MAX_TWEETS = int(args.tweet_count)
@@ -421,6 +507,7 @@ if __name__ == '__main__':
     FROM_DATE = args.from_date
     TO_DATE = args.to_date
 
+    # searched_tweets = [status for status in tweepy.Cursor(api.search, q=query).items(max_tweets)]
     fetched_tweets = search_tweets_from_twitter_home(QUERY, MAX_TWEETS, FROM_DATE, TO_DATE)
 
     # write searched results(tweets) to output file

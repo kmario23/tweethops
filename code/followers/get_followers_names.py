@@ -1,7 +1,12 @@
 #!/usr/bin/env python
-"""another module for fetching followers of a twitter user"""
 from __future__ import print_function
 from __future__ import division
+
+"""
+Modified on Tue Nov 20 00:08:31 2016
+@author: mario
+"""
+"""another module for fetching followers of a twitter user"""
 
 import time
 import math
@@ -13,7 +18,7 @@ ACCESS_TOKEN = ""
 ACCESS_TOKEN_SECRET = ""
 CONSUMER_KEY = ""
 CONSUMER_SECRET = ""
-
+    
 auth = tweepy.auth.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 api = tweepy.API(auth)
@@ -48,10 +53,16 @@ def get_followers_ids(scr_name, cum_call_count):
                         fol_call = 1
                         cum_call_count = 0
             return (ids, fol_call)
-        except tweepy.error.TweepError as twerr:
+        except (tweepy.error.TweepError, tweepy.error.RateLimitError) as twerr:
             print("Error occurred: {0}".format(twerr))
-            print("Reconnecting... after 10secs")
-            sleeper(30)
+            if int(twerr.api_code) == 88:
+                print("Rate limit exceeded")
+                sleeper(1000)
+                fol_call = 1
+                cum_call_count = 0
+            else:
+                print("Reconnecting... after 20secs")
+                sleeper(20)
     else:
         """On failing all retries, return this"""
         return (ids, 14)

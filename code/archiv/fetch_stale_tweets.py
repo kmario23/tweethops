@@ -39,12 +39,10 @@ if __name__ == '__main__':
 	max_tweets = 500
 	from_date = "2015-02-01"
 	to_date = "2016-01-29"
-	#searched_tweets = [status for status in tweepy.Cursor(api.search, q=query).items(max_tweets)]
 	searched_tweets = search_tweets_from_twitter_home(query, max_tweets, from_date, to_date)
 	#flushing it out to stdout
 	for tw in searched_tweets:
 		print(tw)
-
 
     #getting tweets from a specific user from his/her twitter timeline, if the account is public.
 	screen_name = 'danieltosh'

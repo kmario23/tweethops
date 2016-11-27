@@ -24,20 +24,17 @@ class StdOutListener(StreamListener):
 
 
 if __name__ == '__main__':
-
     #handles Twitter authentication and the connection to Twitter Streaming API
     l = StdOutListener()
     auth = OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
 
     #list the keywords that you want to fetch tweets about
-    keyword_list = ['Bioinformatics', 'Saarland University', 'Computer Science', 'Cancer', 'New Year', '2016', 'Germany', 'Obama', 'Angela Merkel', 'Paris']
+    keyword_list = ['Saarland University', 'Computer Science', 'Cancer', 'Paris']
 
     while True:
         try:
             stream = Stream(auth, l)
-            #filter Twitter Streams to capture data by keywords: 'python', 'javascript', 'ruby'
-            #stream.filter(track=['python', 'javascript', 'ruby'])
             stream.filter(track=keyword_list, stall_warnings=True)
 
         except IncompleteRead as e:
